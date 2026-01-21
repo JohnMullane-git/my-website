@@ -17,3 +17,4 @@ Welcome to my website. I work as a statistician in the public sector with a BSc 
 
 This site contains short statistical posts, including official statistics from the CSO.
 
+---
