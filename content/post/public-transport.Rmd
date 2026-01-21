@@ -1,0 +1,69 @@
+---
+title: "Public Transport Journeys IE"
+author: "John Mullane"
+date: "2026-01-21"
+output:
+  blogdown::html_page:
+    toc: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tibble)
+library(jsonlite)
+library(httr)
+library(dplyr)
+library(lubridate)
+url <- "https://ws.cso.ie/public/api.jsonrpc"
+
+query <- list(
+  jsonrpc = "2.0",
+  method = "PxStat.Data.Cube_API.ReadDataset",
+  params = list(
+    class = "query",
+    id = c("STATISTIC", "C03935V04687"),
+    dimension = list(
+      STATISTIC = list(category = list(index = list("THA25C01"))),
+      C03935V04687 = list(category = list(index = list("40")))
+    ),
+    extension = list(
+      language = list(code = "en"),
+      format = list(type = "JSON-stat", version = "2.0"),
+      matrix = "THA25"
+    )
+  ),
+  version = "2.0"
+)
+
+res <- httr::POST(url, body = jsonlite::toJSON(query, auto_unbox = TRUE), encode = "json")
+txt <- httr::content(res, as = "text", encoding = "UTF-8")
+dat <- jsonlite::fromJSON(txt)$result
+
+values <- dat$value
+dates <- dat$dimension$TLISTW1$category$label
+
+df <- tibble(
+  week = as.Date(paste0(dates, "-1"), format="%YW%W-%u"),
+  journeys = as.numeric(values)
+) |> arrange(week)
+
+latest <- tail(df, 1)
+prev_week <- df[nrow(df)-1,]
+
+monthly <- df |> filter(week >= max(week) - weeks(4))
+
+monthly_change <- (latest$journeys - monthly$journeys[1]) / monthly$journeys[1] * 100
+weekly_change <- (latest$journeys - prev_week$journeys) / prev_week$journeys * 100
+
+cat(sprintf(
+  "**Latest week:** %.1f million journeys
+  **Weekly change:** %+0.1f%%
+  **Monthly change:** %+0.1f%%",
+  latest$journeys / 1e6,
+  weekly_change,
+  monthly_change
+))
+```
+
+<script src="https://cdn.jsdelivr.net/gh/CSOIreland/PxWidget@2.9.17/js/isogram.min.js"></script> <script> pxWidget.queue('chart', 'pxwidget3144948961', {"autoupdate":true,"link":"https://data.cso.ie/table/THA25"}); </script> <div id="pxwidget3144948961" class="pxwidget"></div>
+
